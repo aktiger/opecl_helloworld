@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
+
+using namespace std;
 
 #define __CL_ENABLE_EXCEPTIONS
 #include <CL/cl.hpp>
@@ -27,8 +30,32 @@ static const char source[] =
     "    }\n"
     "}\n";
 
+
+
+
+
+
 int main() {
     const size_t N = 1 << 20;
+    bool profile=true;
+    bool block = false;
+    cl_int  status = 0;
+    int  tmp = profile & status;
+    std::cout << tmp << std::endl;
+    size_t source_size = 0;
+    ifstream in("./test.cl", ios::in);
+
+    istreambuf_iterator<char> start(in), end;
+    string sources (start, end);
+
+    if(sources.empty()) {
+        std::cout << "opencl source files is empty\n" << std::endl;
+    }
+    source_size = sources.size();
+    std::cout << source_size << std::endl;
+
+    in.close();
+
 
     try {
 	// Get list of OpenCL platforms.
@@ -43,13 +70,13 @@ int main() {
 	// Get first available GPU device which supports double precision.
 	cl::Context context;
 	std::vector<cl::Device> device;
-	for(auto p = platform.begin(); device.empty() && p != platform.end(); p++) {
+	for(auto p = platform.begin();  p != platform.end(); p++) {
 	    std::vector<cl::Device> pldev;
 
 	    try {
 		p->getDevices(CL_DEVICE_TYPE_GPU, &pldev);
 
-		for(auto d = pldev.begin(); device.empty() && d != pldev.end(); d++) {
+		for(auto d = pldev.begin();  d != pldev.end(); d++) {
 		    if (!d->getInfo<CL_DEVICE_AVAILABLE>()) continue;
 
 		    std::string ext = d->getInfo<CL_DEVICE_EXTENSIONS>();
@@ -72,22 +99,32 @@ int main() {
 	    return 1;
 	}
 
+	std::cout << "Found " << device.size() << " devices" << std::endl;
 	std::cout << device[0].getInfo<CL_DEVICE_NAME>() << std::endl;
+	std::cout << device[1].getInfo<CL_DEVICE_NAME>() << std::endl;
 
 	// Create command queue.
-	cl::CommandQueue queue(context, device[0]);
+	cl::CommandQueue queue(context, device[1]);
+
+	//cl_program  _program = clCreateProgramWithSource((*_pContext), 1, (const char **)&source, &src_size, &_status);
+
+
 
 	// Compile OpenCL program for found device.
-	cl::Program program(context, cl::Program::Sources(
+	/*cl::Program program(context, cl::Program::Sources(
 		    1, std::make_pair(source, strlen(source))
-		    ));
+		    ));*/
+
+	cl::Program program(context, cl::Program::Sources(
+           1, std::make_pair(sources.c_str(), sources.size())
+    ));
 
 	try {
 	    program.build(device);
 	} catch (const cl::Error&) {
 	    std::cerr
 		<< "OpenCL compilation error" << std::endl
-		<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
+		<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[1])
 		<< std::endl;
 	    return 1;
 	}
@@ -98,6 +135,7 @@ int main() {
 	std::vector<double> a(N, 1);
 	std::vector<double> b(N, 2);
 	std::vector<double> c(N);
+
 
 	// Allocate device buffers and transfer input data to device.
 	cl::Buffer A(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
